@@ -512,5 +512,28 @@ end tell
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+def delete_task(task_id: str) -> str:
+    """
+    Permanently delete a task from Things 3.
+
+    Args:
+        task_id: The Things 3 task ID.
+    """
+    try:
+        script = f"""
+tell application "Things3"
+    set t to to do id "{esc(task_id)}"
+    set tname to name of t
+    delete t
+    return tname
+end tell
+"""
+        name = run_applescript(script)
+        return json.dumps({"deleted": True, "task_name": name})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 if __name__ == "__main__":
     mcp.run()
