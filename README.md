@@ -67,6 +67,9 @@ Things 3 must be open and running when Claude Desktop starts.
 | `create_project` | Create a project with the same options |
 | `update_task` | Update any field on an existing task |
 | `complete_task` | Mark a task as complete |
+| `delete_task` | Permanently delete a task |
+
+Dates accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove a date.
 
 ## Example usage
 
