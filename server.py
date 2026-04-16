@@ -86,29 +86,31 @@ on safeStr(val)
 end safeStr
 
 on taskLine(t)
-    set tid to id of t
-    set tname to my safeStr(name of t)
-    set tnotes to my safeStr(notes of t)
-    set tdue to my formatDate(due date of t)
-    set twhen to my formatDate(activation date of t)
-    set tstat to status of t as text
-    set tagStr to ""
-    repeat with tg in tags of t
-        if tagStr is not "" then set tagStr to tagStr & ","
-        set tagStr to tagStr & (name of tg)
-    end repeat
-    set pName to ""
-    set pId to ""
-    if project of t is not missing value then
-        set pName to my safeStr(name of project of t)
-        set pId to id of project of t
-    end if
-    set aName to ""
-    set aId to ""
-    if area of t is not missing value then
-        set aName to my safeStr(name of area of t)
-        set aId to id of area of t
-    end if
+    tell application "Things3"
+        set tid to id of t
+        set tname to my safeStr(name of t)
+        set tnotes to my safeStr(notes of t)
+        set tdue to my formatDate(due date of t)
+        set twhen to my formatDate(activation date of t)
+        set tstat to status of t as text
+        set tagStr to ""
+        repeat with tg in tags of t
+            if tagStr is not "" then set tagStr to tagStr & ","
+            set tagStr to tagStr & (name of tg)
+        end repeat
+        set pName to ""
+        set pId to ""
+        if project of t is not missing value then
+            set pName to my safeStr(name of project of t)
+            set pId to id of project of t
+        end if
+        set aName to ""
+        set aId to ""
+        if area of t is not missing value then
+            set aName to my safeStr(name of area of t)
+            set aId to id of area of t
+        end if
+    end tell
     return tid & "|||" & tname & "|||" & tnotes & "|||" & tdue & "|||" & twhen & "|||" & tstat & "|||" & tagStr & "|||" & pName & "|||" & pId & "|||" & aName & "|||" & aId
 end taskLine
 
