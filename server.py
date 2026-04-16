@@ -351,7 +351,7 @@ def create_task(
         if deadline:
             extra.append(f'set due date of newTask to my parseDate("{esc(resolve_date(deadline))}")')
         if when_date:
-            extra.append(f'set activation date of newTask to my parseDate("{esc(resolve_date(when_date))}")')
+            extra.append(f'schedule newTask for my parseDate("{esc(resolve_date(when_date))}")')
         if tags:
             tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
             extra.append(f'set tag names of newTask to {tag_list}')
@@ -404,7 +404,7 @@ def create_project(
         if deadline:
             extra.append(f'set due date of newProj to my parseDate("{esc(deadline)}")')
         if when_date:
-            extra.append(f'set activation date of newProj to my parseDate("{esc(when_date)}")')
+            extra.append(f'schedule newProj for my parseDate("{esc(when_date)}")')
         if tags:
             tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
             extra.append(f'set tag names of newProj to {tag_list}')
@@ -461,9 +461,9 @@ def update_task(
         elif deadline:
             lines.append(f'set due date of t to my parseDate("{esc(resolve_date(deadline))}")')
         if when_date == "clear":
-            lines.append("set activation date of t to missing value")
+            lines.append("schedule t for missing value")
         elif when_date:
-            lines.append(f'set activation date of t to my parseDate("{esc(resolve_date(when_date))}")')
+            lines.append(f'schedule t for my parseDate("{esc(resolve_date(when_date))}")')
         if add_tags:
             tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
             lines.append(f"set tag names of t to (tag names of t) & {tag_list}")
