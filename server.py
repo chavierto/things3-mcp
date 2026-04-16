@@ -3,6 +3,7 @@
 
 import json
 import subprocess
+from datetime import date, timedelta
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -26,6 +27,17 @@ def run_applescript(script: str) -> str:
 def esc(s: str) -> str:
     """Escape a string for safe inclusion in an AppleScript string literal."""
     return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def resolve_date(value: str) -> str:
+    """Convert natural language dates to YYYY-MM-DD. Passes through existing dates."""
+    today = date.today()
+    mapping = {
+        "today": today,
+        "tomorrow": today + timedelta(days=1),
+        "yesterday": today - timedelta(days=1),
+    }
+    return mapping[value.lower()].isoformat() if value.lower() in mapping else value
 
 
 def parse_task_lines(output: str) -> list[dict]:
@@ -337,9 +349,9 @@ def create_task(
 
         extra = []
         if deadline:
-            extra.append(f'set due date of newTask to my parseDate("{esc(deadline)}")')
+            extra.append(f'set due date of newTask to my parseDate("{esc(resolve_date(deadline))}")')
         if when_date:
-            extra.append(f'set activation date of newTask to my parseDate("{esc(when_date)}")')
+            extra.append(f'set activation date of newTask to my parseDate("{esc(resolve_date(when_date))}")')
         if tags:
             tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
             extra.append(f'set tag names of newTask to {tag_list}')
@@ -432,8 +444,8 @@ def update_task(
         task_id: The Things 3 task ID (required).
         title: New title.
         notes: New notes (replaces existing notes).
-        deadline: New deadline as YYYY-MM-DD, or "clear" to remove.
-        when_date: New scheduled date as YYYY-MM-DD, or "clear" to remove.
+        deadline: New deadline as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
+        when_date: New scheduled date as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
         add_tags: Tag names to add (merges with existing tags).
         project_id: ID of project to move the task to.
         area_id: ID of area to move the task to (ignored if project_id is set).
@@ -447,11 +459,11 @@ def update_task(
         if deadline == "clear":
             lines.append("set due date of t to missing value")
         elif deadline:
-            lines.append(f'set due date of t to my parseDate("{esc(deadline)}")')
+            lines.append(f'set due date of t to my parseDate("{esc(resolve_date(deadline))}")')
         if when_date == "clear":
             lines.append("set activation date of t to missing value")
         elif when_date:
-            lines.append(f'set activation date of t to my parseDate("{esc(when_date)}")')
+            lines.append(f'set activation date of t to my parseDate("{esc(resolve_date(when_date))}")')
         if add_tags:
             tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
             lines.append(f"set tag names of t to (tag names of t) & {tag_list}")
