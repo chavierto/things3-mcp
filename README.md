@@ -66,6 +66,8 @@ Things 3 must be open and running when Claude Desktop starts.
 | `create_task` | Create a task with title, notes, deadline, when-date, tags, project, or area |
 | `create_project` | Create a project with the same options |
 | `update_task` | Update any field on an existing task |
+| `update_project` | Update any field on an existing project |
+| `set_task_status` | Set a task to `open`, `completed`, or `cancelled` |
 | `complete_task` | Mark a task as complete |
 | `delete_task` | Permanently delete a task |
 
@@ -86,6 +88,20 @@ Dates accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove 
 Claude talks to the MCP server over stdio. The server translates tool calls into AppleScript commands sent to Things 3 via `osascript`. No network requests, no API keys, no Things URL scheme required.
 
 Since Things 3 syncs via Things Cloud, anything created or modified on Mac will automatically appear on iPhone and iPad.
+
+## Logs
+
+The server writes warnings and errors to:
+
+```
+~/.local/share/things-mcp/things-mcp.log
+```
+
+To watch logs in real time:
+
+```bash
+tail -f ~/.local/share/things-mcp/things-mcp.log
+```
 
 ## License
 

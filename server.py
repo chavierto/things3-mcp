@@ -3,13 +3,20 @@
 
 import json
 import logging
+import os
 import subprocess
 from datetime import date, timedelta
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s")
+LOG_FILE = os.path.expanduser("~/.local/share/things-mcp/things-mcp.log")
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.FileHandler(LOG_FILE)],
+)
 logger = logging.getLogger("things-mcp")
 
 mcp = FastMCP("Things 3")
