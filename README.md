@@ -71,7 +71,13 @@ Things 3 must be open and running when Claude Desktop starts.
 | `complete_task` | Mark a task as complete |
 | `delete_task` | Permanently delete a task |
 
-Dates accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove a date.
+### Date and tag handling
+
+**Dates** accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove a date.
+
+**Tags** can contain any characters, including slashes and spaces (e.g., `"Important/Due soon"`). When adding multiple tags via `add_tags`, each tag is created separately:
+- `add_tags=["Tag1", "Tag2"]` creates two distinct tags, not one concatenated tag
+- Existing tags are preserved; new tags are merged in
 
 ## Example usage
 
@@ -79,7 +85,7 @@ Dates accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove 
 
 > "Add a task to call the dentist next Tuesday"
 
-> "Move the Ritmo project tasks to the Finance area"
+> "Move the coding project tasks to the Finance area"
 
 > "Mark everything tagged 'waiting' as complete"
 
