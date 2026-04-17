@@ -85,7 +85,7 @@ Things 3 must be open and running when Claude Desktop starts.
 
 > "Add a task to call the dentist next Tuesday"
 
-> "Move the coding project tasks to the Finance area"
+> "Move the household budget tasks to the Finance area"
 
 > "Mark everything tagged 'waiting' as complete"
 
