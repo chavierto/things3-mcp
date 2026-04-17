@@ -397,8 +397,8 @@ def create_task(
         if when_date:
             extra.append(f'schedule newTask for my parseDate("{esc(resolve_date(when_date))}")')
         if tags:
-            tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
-            extra.append(f'set tag names of newTask to {tag_list}')
+            tag_str = ",".join(esc(t) for t in tags)
+            extra.append(f'set tag names of newTask to "{tag_str}"')
         if project_id:
             extra.append(f'set project of newTask to project id "{esc(project_id)}"')
         elif area_id:
@@ -453,8 +453,8 @@ def create_project(
         if when_date:
             extra.append(f'schedule newProj for my parseDate("{esc(resolve_date(when_date))}")')
         if tags:
-            tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
-            extra.append(f'set tag names of newProj to {tag_list}')
+            tag_str = ",".join(esc(t) for t in tags)
+            extra.append(f'set tag names of newProj to "{tag_str}"')
         if area_id:
             extra.append(f'set area of newProj to area id "{esc(area_id)}"')
 
@@ -515,9 +515,9 @@ def update_task(
         elif when_date:
             lines.append(f'schedule t for my parseDate("{esc(resolve_date(when_date))}")')
         if add_tags:
-            tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
+            tag_str = ",".join(esc(tag) for tag in add_tags)
             lines.append(f"set existingTags to tag names of t")
-            lines.append(f"set tag names of t to existingTags & {tag_list}")
+            lines.append(f'set tag names of t to existingTags & "," & "{tag_str}"')
         if project_id:
             lines.append(f'set project of t to project id "{esc(project_id)}"')
         elif area_id:
@@ -581,9 +581,9 @@ def update_project(
         elif when_date:
             lines.append(f'schedule p for my parseDate("{esc(resolve_date(when_date))}")')
         if add_tags:
-            tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
+            tag_str = ",".join(esc(tag) for tag in add_tags)
             lines.append(f"set existingTags to tag names of p")
-            lines.append(f"set tag names of p to existingTags & {tag_list}")
+            lines.append(f'set tag names of p to existingTags & "," & "{tag_str}"')
         if area_id:
             lines.append(f'set area of p to area id "{esc(area_id)}"')
 
