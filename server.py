@@ -2,15 +2,22 @@
 """Things 3 MCP Server - interact with Things 3 on macOS via AppleScript."""
 
 import json
+import logging
 import subprocess
 from datetime import date, timedelta
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("things-mcp")
+
 mcp = FastMCP("Things 3")
 
 VALID_LISTS = {"Inbox", "Today", "Upcoming", "Anytime", "Someday", "Logbook", "Trash"}
+VALID_STATUSES = {"open", "completed", "cancelled", "canceled"}
+# AppleScript uses American spelling; map both to the correct constant
+STATUS_MAP = {"cancelled": "canceled", "canceled": "canceled", "open": "open", "completed": "completed"}
 SEP = "|||"
 
 
@@ -20,24 +27,35 @@ def run_applescript(script: str) -> str:
         capture_output=True, text=True, timeout=30,
     )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
+        err = result.stderr.strip()
+        logger.error("AppleScript error: %s", err)
+        raise RuntimeError(err)
     return result.stdout.strip()
 
 
 def esc(s: str) -> str:
     """Escape a string for safe inclusion in an AppleScript string literal."""
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+    s = s.replace("\\", "\\\\").replace('"', '\\"')
+    s = s.replace("\n", '" & (ASCII character 10) & "')
+    s = s.replace("\r", '" & (ASCII character 13) & "')
+    return s
 
 
 def resolve_date(value: str) -> str:
-    """Convert natural language dates to YYYY-MM-DD. Passes through existing dates."""
+    """Convert natural language dates to YYYY-MM-DD. Validates YYYY-MM-DD format."""
     today = date.today()
     mapping = {
         "today": today,
         "tomorrow": today + timedelta(days=1),
         "yesterday": today - timedelta(days=1),
     }
-    return mapping[value.lower()].isoformat() if value.lower() in mapping else value
+    if value.lower() in mapping:
+        return mapping[value.lower()].isoformat()
+    try:
+        date.fromisoformat(value)
+        return value
+    except ValueError:
+        raise ValueError(f"Invalid date '{value}'. Use YYYY-MM-DD, 'today', or 'tomorrow'.")
 
 
 def parse_task_lines(output: str) -> list[dict]:
@@ -48,6 +66,7 @@ def parse_task_lines(output: str) -> list[dict]:
             continue
         parts = line.split(SEP)
         if len(parts) < 11:
+            logger.warning("Skipping incomplete task record: %s", line[:80])
             continue
         tasks.append({
             "id": parts[0],
@@ -164,8 +183,11 @@ tell application "Things3"
 end tell
 """
         return json.dumps(parse_task_lines(run_applescript(script)), indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in get_tasks")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -185,8 +207,11 @@ end tell
 """
         tasks = parse_task_lines(run_applescript(script))
         return json.dumps(tasks[0] if tasks else {"error": "Task not found"}, indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in get_task")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -195,7 +220,7 @@ def search_tasks(query: str) -> str:
     Search for tasks across all lists by name.
 
     Args:
-        query: Text to search for in task names.
+        query: Text to search for in task names (substring match).
     """
     try:
         script = HELPERS + f"""
@@ -209,8 +234,11 @@ tell application "Things3"
 end tell
 """
         return json.dumps(parse_task_lines(run_applescript(script)), indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in search_tasks")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -259,8 +287,11 @@ end tell
                 "area_id": parts[6] or None,
             })
         return json.dumps(projects, indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in get_projects")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -297,8 +328,11 @@ end tell
                 "tags": [t for t in parts[2].split(",") if t],
             })
         return json.dumps(areas, indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in get_areas")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -316,8 +350,11 @@ end tell
 """
         tags = [line.strip() for line in run_applescript(script).split("\n") if line.strip()]
         return json.dumps(tags, indent=2)
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in get_tags")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -336,8 +373,8 @@ def create_task(
     Args:
         title: Task title (required).
         notes: Task notes.
-        deadline: Hard deadline as YYYY-MM-DD.
-        when_date: Scheduled start date as YYYY-MM-DD.
+        deadline: Hard deadline as YYYY-MM-DD, "today", or "tomorrow".
+        when_date: Scheduled start date as YYYY-MM-DD, "today", or "tomorrow".
         tags: List of tag names to apply.
         project_id: ID of the project to add the task to.
         area_id: ID of the area to add the task to (ignored if project_id is set).
@@ -371,8 +408,11 @@ end tell
         output = run_applescript(script)
         parts = output.split(SEP, 1)
         return json.dumps({"id": parts[0], "name": parts[1] if len(parts) > 1 else title})
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in create_task")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -390,8 +430,8 @@ def create_project(
     Args:
         title: Project title (required).
         notes: Project notes.
-        deadline: Hard deadline as YYYY-MM-DD.
-        when_date: Scheduled start date as YYYY-MM-DD.
+        deadline: Hard deadline as YYYY-MM-DD, "today", or "tomorrow".
+        when_date: Scheduled start date as YYYY-MM-DD, "today", or "tomorrow".
         tags: List of tag names to apply.
         area_id: ID of the area to add the project to.
     """
@@ -402,9 +442,9 @@ def create_project(
 
         extra = []
         if deadline:
-            extra.append(f'set due date of newProj to my parseDate("{esc(deadline)}")')
+            extra.append(f'set due date of newProj to my parseDate("{esc(resolve_date(deadline))}")')
         if when_date:
-            extra.append(f'schedule newProj for my parseDate("{esc(when_date)}")')
+            extra.append(f'schedule newProj for my parseDate("{esc(resolve_date(when_date))}")')
         if tags:
             tag_list = "{" + ", ".join(f'"{esc(t)}"' for t in tags) + "}"
             extra.append(f'set tag names of newProj to {tag_list}')
@@ -422,8 +462,11 @@ end tell
         output = run_applescript(script)
         parts = output.split(SEP, 1)
         return json.dumps({"id": parts[0], "name": parts[1] if len(parts) > 1 else title})
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in create_project")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -466,7 +509,8 @@ def update_task(
             lines.append(f'schedule t for my parseDate("{esc(resolve_date(when_date))}")')
         if add_tags:
             tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
-            lines.append(f"set tag names of t to (tag names of t) & {tag_list}")
+            lines.append(f"set existingTags to tag names of t")
+            lines.append(f"set tag names of t to existingTags & {tag_list}")
         if project_id:
             lines.append(f'set project of t to project id "{esc(project_id)}"')
         elif area_id:
@@ -486,8 +530,104 @@ end tell
         output = run_applescript(script)
         parts = output.split(SEP, 1)
         return json.dumps({"id": parts[0], "name": parts[1] if len(parts) > 1 else "", "updated": True})
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in update_task")
+        return json.dumps({"error": "Internal error — check server logs"})
+
+
+@mcp.tool()
+def update_project(
+    project_id: str,
+    title: Optional[str] = None,
+    notes: Optional[str] = None,
+    deadline: Optional[str] = None,
+    when_date: Optional[str] = None,
+    add_tags: Optional[list[str]] = None,
+    area_id: Optional[str] = None,
+) -> str:
+    """
+    Update an existing project in Things 3.
+
+    Args:
+        project_id: The Things 3 project ID (required).
+        title: New title.
+        notes: New notes (replaces existing notes).
+        deadline: New deadline as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
+        when_date: New scheduled date as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
+        add_tags: Tag names to add (merges with existing tags).
+        area_id: ID of area to move the project to.
+    """
+    try:
+        lines = []
+        if title is not None:
+            lines.append(f'set name of p to "{esc(title)}"')
+        if notes is not None:
+            lines.append(f'set notes of p to "{esc(notes)}"')
+        if deadline == "clear":
+            lines.append("set due date of p to missing value")
+        elif deadline:
+            lines.append(f'set due date of p to my parseDate("{esc(resolve_date(deadline))}")')
+        if when_date == "clear":
+            lines.append("schedule p for missing value")
+        elif when_date:
+            lines.append(f'schedule p for my parseDate("{esc(resolve_date(when_date))}")')
+        if add_tags:
+            tag_list = "{" + ", ".join(f'"{esc(tag)}"' for tag in add_tags) + "}"
+            lines.append(f"set existingTags to tag names of p")
+            lines.append(f"set tag names of p to existingTags & {tag_list}")
+        if area_id:
+            lines.append(f'set area of p to area id "{esc(area_id)}"')
+
+        if not lines:
+            return json.dumps({"error": "No updates specified"})
+
+        update_block = "\n    ".join(lines)
+        script = HELPERS + f"""
+tell application "Things3"
+    set p to project id "{esc(project_id)}"
+    {update_block}
+    return id of p & "|||" & name of p
+end tell
+"""
+        output = run_applescript(script)
+        parts = output.split(SEP, 1)
+        return json.dumps({"id": parts[0], "name": parts[1] if len(parts) > 1 else "", "updated": True})
+    except (RuntimeError, ValueError) as e:
+        return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in update_project")
+        return json.dumps({"error": "Internal error — check server logs"})
+
+
+@mcp.tool()
+def set_task_status(task_id: str, status: str) -> str:
+    """
+    Set the status of a task. Use this to reopen, cancel, or complete a task.
+
+    Args:
+        task_id: The Things 3 task ID.
+        status: One of: 'open', 'completed', 'cancelled'.
+    """
+    if status not in VALID_STATUSES:
+        return json.dumps({"error": "status must be one of: open, completed, cancelled"})
+    try:
+        as_status = STATUS_MAP[status]
+        script = f"""
+tell application "Things3"
+    set t to to do id "{esc(task_id)}"
+    set status of t to {as_status}
+    return name of t
+end tell
+"""
+        name = run_applescript(script)
+        return json.dumps({"status": status, "task_name": name})
+    except RuntimeError as e:
+        return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in set_task_status")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -508,8 +648,11 @@ end tell
 """
         name = run_applescript(script)
         return json.dumps({"completed": True, "task_name": name})
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in complete_task")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 @mcp.tool()
@@ -531,8 +674,11 @@ end tell
 """
         name = run_applescript(script)
         return json.dumps({"deleted": True, "task_name": name})
-    except Exception as e:
+    except RuntimeError as e:
         return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("Unexpected error in delete_task")
+        return json.dumps({"error": "Internal error — check server logs"})
 
 
 if __name__ == "__main__":
