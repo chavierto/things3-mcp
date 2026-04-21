@@ -32,7 +32,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-**4. Add to Claude Desktop config**
+**4. Set up auth token for checklist operations**
+
+Copy `.env.example` to `.env` and add your Things 3 auth token:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and add your token (get it from Things 3 settings → Advanced → URL Scheme & Automations):
+
+```
+THINGS_AUTH_TOKEN=your_token_here
+```
+
+The `.env` file is git-ignored, so your token won't be committed.
+
+**5. Add to Claude Desktop config**
 
 Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
 
@@ -49,7 +65,7 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
 
 Replace `/path/to/uv` with the output of `which uv` and `/path/to/things3-mcp` with the folder you cloned into.
 
-**5. Restart Claude Desktop**
+**6. Restart Claude Desktop**
 
 Things 3 must be open and running when Claude Desktop starts.
 
@@ -70,6 +86,10 @@ Things 3 must be open and running when Claude Desktop starts.
 | `set_task_status` | Set a task to `open`, `completed`, or `cancelled` |
 | `complete_task` | Mark a task as complete |
 | `delete_task` | Permanently delete a task |
+| `create_task` (with checklist) | Create task with initial checklist items |
+| `add_checklist_items` | Append items to a task's checklist |
+| `get_task_checklist` | Read all checklist items and their completion status |
+| `get_checklist_item_status` | Check the status of a single checklist item |
 
 ### Date and tag handling
 
@@ -78,6 +98,18 @@ Things 3 must be open and running when Claude Desktop starts.
 **Tags** can contain any characters, including slashes and spaces (e.g., `"Important/Due soon"`). When adding multiple tags via `add_tags`, each tag is created separately:
 - `add_tags=["Tag1", "Tag2"]` creates two distinct tags, not one concatenated tag
 - Existing tags are preserved; new tags are merged in
+
+### Checklist functionality
+
+**Creating and managing checklists:**
+- `create_task(..., checklist_items=["Item 1", "Item 2"])` — create task with initial checklist
+- `add_checklist_items(task_id, ["Item 3", "Item 4"])` — append items to existing checklist
+- `get_task_checklist(task_id)` — read all items and see which are complete
+- `get_checklist_item_status(task_id, "Item 1")` — check status of single item
+
+**Important:** Completing checklist items must be done in the Things 3 app. The Things URL Scheme does not currently support programmatic completion of checklist items, despite the documentation. You can create and read checklists via the MCP, but marking items complete must be done manually in the app.
+
+**Requirements:** Checklist write operations require `THINGS_AUTH_TOKEN` to be set in your `.env` file (see Installation step 4). Your token is stored locally in the project and is git-ignored.
 
 ## Example usage
 
