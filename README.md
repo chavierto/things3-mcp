@@ -1,8 +1,8 @@
 # things3-mcp
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that gives Claude full read/write access to [Things 3](https://culturedcode.com/things/) on macOS via AppleScript.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that gives Claude full read/write access to [Things 3](https://culturedcode.com/things/) on macOS using AppleScript, Things URL Scheme, and direct database access.
 
-Ask Claude to create tasks, search your lists, reschedule things, complete items, and more — all without leaving your conversation.
+Ask Claude to create tasks, search your lists, manage checklists, reschedule things, complete items, and more — all without leaving your conversation.
 
 ## Requirements
 
@@ -123,14 +123,15 @@ Things 3 must be open and running when Claude Desktop starts.
 
 ## How it works
 
-Claude talks to the MCP server over stdio. The server uses:
-- **AppleScript** — reads and writes task data, projects, areas, and tags
-- **Things URL Scheme** — writes checklist items (requires auth token from Things settings)
-- **things.py** — reads checklist status from the Things database
+Claude talks to the MCP server over stdio. The server translates tool calls into commands using three complementary methods:
 
-No network requests or cloud APIs. Your auth token is stored locally in `.env` and never leaves your machine.
+**AppleScript** — Reads and writes task data, projects, areas, tags, and task statuses. Executed via `osascript` and communicates directly with Things 3 app.
 
-Since Things 3 syncs via Things Cloud, anything created or modified on Mac will automatically appear on iPhone and iPad.
+**Things URL Scheme** — Writes checklist items to tasks. The official Things 3 API for automation. Requires an auth token stored in your local `.env` file.
+
+**things.py** — Reads checklist status from the Things 3 SQLite database. Safe read-only access; never writes directly to the database.
+
+No network requests or cloud APIs. Your auth token is stored locally in `.env` and never leaves your machine. Since Things 3 syncs via Things Cloud, anything created or modified on Mac will automatically appear on iPhone and iPad.
 
 ## Logs
 
