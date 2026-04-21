@@ -123,7 +123,12 @@ Things 3 must be open and running when Claude Desktop starts.
 
 ## How it works
 
-Claude talks to the MCP server over stdio. The server translates tool calls into AppleScript commands sent to Things 3 via `osascript`. No network requests, no API keys, no Things URL scheme required.
+Claude talks to the MCP server over stdio. The server uses:
+- **AppleScript** — reads and writes task data, projects, areas, and tags
+- **Things URL Scheme** — writes checklist items (requires auth token from Things settings)
+- **things.py** — reads checklist status from the Things database
+
+No network requests or cloud APIs. Your auth token is stored locally in `.env` and never leaves your machine.
 
 Since Things 3 syncs via Things Cloud, anything created or modified on Mac will automatically appear on iPhone and iPad.
 
