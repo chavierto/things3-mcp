@@ -226,6 +226,16 @@ on parseDate(dStr)
     return dateObj
 end parseDate
 
+on addTagsToItem(obj, addStr)
+    if addStr is "" then return
+    set currentTagStr to tag names of obj
+    if currentTagStr is "" then
+        set tag names of obj to addStr
+    else
+        set tag names of obj to currentTagStr & "," & addStr
+    end if
+end addTagsToItem
+
 on removeTagsFromItem(obj, removeStr)
     if removeStr is "" then return
     set AppleScript's text item delimiters to ","
@@ -604,8 +614,7 @@ def update_task(
         lines.append(f'schedule t for my parseDate("{esc(resolve_date(when_date))}")')
     if add_tags:
         tag_str = ",".join(esc(tag) for tag in add_tags)
-        lines.append(f"set existingTags to tag names of t")
-        lines.append(f'set tag names of t to existingTags & "," & "{tag_str}"')
+        lines.append(f'my addTagsToItem(t, "{tag_str}")')
     if remove_tags:
         remove_str = ",".join(esc(tag) for tag in remove_tags)
         lines.append(f'my removeTagsFromItem(t, "{remove_str}")')
@@ -668,8 +677,7 @@ def update_project(
         lines.append(f'schedule p for my parseDate("{esc(resolve_date(when_date))}")')
     if add_tags:
         tag_str = ",".join(esc(tag) for tag in add_tags)
-        lines.append(f"set existingTags to tag names of p")
-        lines.append(f'set tag names of p to existingTags & "," & "{tag_str}"')
+        lines.append(f'my addTagsToItem(p, "{tag_str}")')
     if remove_tags:
         remove_str = ",".join(esc(tag) for tag in remove_tags)
         lines.append(f'my removeTagsFromItem(p, "{remove_str}")')
@@ -742,11 +750,12 @@ end tell
 @mcp.tool()
 def delete_task(task_id: str) -> str:
     """
-    Permanently delete a task from Things 3.
+    Move a task to Trash in Things 3.
 
-    Permanently removes the task. This operation cannot be undone — the task is not moved
-    to Trash, it is completely deleted. If you want to remove a task from your active lists
-    without deleting it, use complete_task() instead.
+    Moves the task to Trash. The task can be recovered from Trash in the Things 3 app
+    before it is permanently deleted. If you want to remove a task from active lists
+    without deleting it, use complete_task() (moves to Logbook) or
+    set_task_status(status="cancelled").
 
     Args:
         task_id: The Things 3 task ID.
@@ -835,9 +844,7 @@ def get_task_checklist(task_id: str) -> str:
     Args:
         task_id: The Things 3 task ID.
     """
-    import things
-    task = things.todos(uuid=task_id)
-
+    task = get_checklist_data(task_id)
     if not task:
         return json.dumps({"error": "Task not found"})
 
