@@ -234,6 +234,10 @@ def get_tasks(list_name: str = "Today") -> str:
     """
     Get tasks from a Things 3 list.
 
+    Returns all tasks in the specified list. Each task includes id, name, notes, dates, tags,
+    project/area assignments, and status. Checklist items are NOT included — use get_task_checklist()
+    to retrieve those separately.
+
     Args:
         list_name: The list to fetch from. One of: Inbox, Today, Upcoming, Anytime, Someday, Logbook, Trash.
     """
@@ -256,6 +260,9 @@ def get_task(task_id: str) -> str:
     """
     Get full details of a single task by ID.
 
+    Returns the task with all properties (id, name, notes, dates, tags, project, area, status).
+    Checklist items are NOT included — use get_task_checklist() to retrieve those separately.
+
     Args:
         task_id: The Things 3 task ID.
     """
@@ -273,8 +280,12 @@ def search_tasks(query: str) -> str:
     """
     Search for tasks across all lists by name.
 
+    Searches for tasks whose names contain the query string (case-insensitive substring match).
+    Does not search notes, tags, or other fields — name-only. Returns all matching tasks with
+    full details (same format as get_tasks).
+
     Args:
-        query: Text to search for in task names (substring match).
+        query: Text to search for in task names (substring match, case-insensitive).
     """
     script = HELPERS + f"""
 tell application "Things3"
@@ -290,7 +301,11 @@ end tell
 @handle_tool_errors
 @mcp.tool()
 def get_projects() -> str:
-    """Get all projects from Things 3."""
+    """Get all projects from Things 3.
+
+    Returns a list of all projects with their id, name, notes, status, tags, and area assignment.
+    Projects are containers for organizing related tasks. No filtering available — returns all projects.
+    """
     script = HELPERS + """
 tell application "Things3"
     set output to ""
@@ -336,7 +351,12 @@ end tell
 @handle_tool_errors
 @mcp.tool()
 def get_areas() -> str:
-    """Get all areas from Things 3."""
+    """Get all areas from Things 3.
+
+    Returns a list of all areas with their id, name, and tags. Areas are organizational containers
+    (like "Work", "Home", "Personal"). No filtering available — returns all areas. Area data is minimal
+    (does not include associated projects or tasks — use other tools to fetch those).
+    """
     script = HELPERS + """
 tell application "Things3"
     set output to ""
@@ -370,7 +390,11 @@ end tell
 @handle_tool_errors
 @mcp.tool()
 def get_tags() -> str:
-    """Get all tags from Things 3."""
+    """Get all tags from Things 3.
+
+    Returns a list of all tag names used in Things 3. Tags are simple string labels with no hierarchy,
+    IDs, or usage counts — only names are returned. No filtering available — returns all tags in the system.
+    """
     script = """
 tell application "Things3"
     set output to ""
@@ -397,15 +421,22 @@ def create_task(
     """
     Create a new task in Things 3.
 
+    Creates the task and returns its ID. If checklist_items are provided, they are appended
+    to the newly created task.
+
+    WARNING: If checklist_items are provided but THINGS_AUTH_TOKEN is not set, the task will
+    be created but checklist items will be silently skipped. Set the auth token to ensure
+    checklist items are added.
+
     Args:
         title: Task title (required).
         notes: Task notes.
         deadline: Hard deadline as YYYY-MM-DD, "today", or "tomorrow".
         when_date: Scheduled start date as YYYY-MM-DD, "today", or "tomorrow".
         tags: List of tag names to apply.
-        project_id: ID of the project to add the task to.
+        project_id: ID of the project to add the task to. If set, area_id is ignored.
         area_id: ID of the area to add the task to (ignored if project_id is set).
-        checklist_items: List of checklist item titles (max 100).
+        checklist_items: List of checklist item titles (max 100). Requires THINGS_AUTH_TOKEN.
     """
     props = [f'name: "{esc(title)}"']
     if notes:
@@ -458,6 +489,10 @@ def create_project(
 ) -> str:
     """
     Create a new project in Things 3.
+
+    Creates a new project and returns its ID. Projects are containers for organizing related tasks.
+    Tasks must be added to the project separately using create_task(project_id=...) or update_task().
+    No tasks can be added at project creation time.
 
     Args:
         title: Project title (required).
@@ -617,9 +652,13 @@ def set_task_status(task_id: str, status: str) -> str:
     """
     Set the status of a task. Use this to reopen, cancel, or complete a task.
 
+    Sets the task status to one of: 'open' (active), 'completed' (finished, moved to Logbook),
+    or 'cancelled' (abandoned, moved to Trash). Most commonly used to complete or reopen tasks.
+    See also: complete_task() as a convenience wrapper for status='completed'.
+
     Args:
         task_id: The Things 3 task ID.
-        status: One of: 'open', 'completed', 'cancelled'.
+        status: One of: 'open' (active task), 'completed' (finished), 'cancelled' (abandoned).
     """
     if status not in VALID_STATUSES:
         return json.dumps({"error": "status must be one of: open, completed, cancelled"})
@@ -639,6 +678,10 @@ def complete_task(task_id: str) -> str:
     """
     Mark a task as complete in Things 3.
 
+    Sets the task status to "completed". This is a convenience wrapper for set_task_status()
+    with status="completed" — both accomplish the same thing. The task is removed from active
+    lists and moved to the Logbook.
+
     Args:
         task_id: The Things 3 task ID.
     """
@@ -656,6 +699,10 @@ end tell
 def delete_task(task_id: str) -> str:
     """
     Permanently delete a task from Things 3.
+
+    Permanently removes the task. This operation cannot be undone — the task is not moved
+    to Trash, it is completely deleted. If you want to remove a task from your active lists
+    without deleting it, use complete_task() instead.
 
     Args:
         task_id: The Things 3 task ID.
@@ -675,9 +722,15 @@ end tell
 def add_checklist_items(task_id: str, items: list[str]) -> str:
     """Add checklist items to a task. Items are appended to existing list.
 
+    Appends one or more items to the task's checklist. Items are added via the Things URL scheme,
+    which is fire-and-forget with minimal error feedback. Checklist items cannot be removed,
+    reordered, or completed programmatically (completion must be done in the Things 3 app).
+
+    Requires THINGS_AUTH_TOKEN environment variable to be set.
+
     Args:
         task_id: The Things 3 task ID.
-        items: List of checklist item titles (max 100 total per task).
+        items: List of checklist item titles. Append-only; max 100 total items per task.
     """
     if not items:
         return json.dumps({"error": "items list cannot be empty"})
@@ -730,6 +783,11 @@ def get_checklist_item_status(task_id: str, item_text: str) -> str:
 def get_task_checklist(task_id: str) -> str:
     """Get all checklist items for a task, including their completion status.
 
+    Returns a list of checklist items with their completion status. Note that checklist items
+    cannot be completed programmatically — item completion must be done in the Things 3 app.
+    Use add_checklist_items() to add items, but there is currently no tool to mark items complete
+    or remove items from a checklist.
+
     Args:
         task_id: The Things 3 task ID.
     """
@@ -745,7 +803,7 @@ def get_task_checklist(task_id: str) -> str:
         "task_name": task.get("title"),
         "checklist": checklist,
         "total_items": len(checklist),
-        "completed_items": sum(1 for item in checklist if item.get("completed"))
+        "completed_items": sum(1 for item in checklist if item.get("status") == "completed")
     }, indent=2)
 
 
