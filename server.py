@@ -227,46 +227,50 @@ end parseDate
 
 on addTagsToItem(obj, addStr)
     if addStr is "" then return
-    set currentTagStr to tag names of obj
-    if currentTagStr is "" then
-        set tag names of obj to addStr
-    else
-        set tag names of obj to currentTagStr & "," & addStr
-    end if
+    tell application "Things3"
+        set currentTagStr to tag names of obj
+        if currentTagStr is "" then
+            set tag names of obj to addStr
+        else
+            set tag names of obj to currentTagStr & "," & addStr
+        end if
+    end tell
 end addTagsToItem
 
 on removeTagsFromItem(obj, removeStr)
     if removeStr is "" then return
-    set AppleScript's text item delimiters to ","
-    set removeTags to text items of removeStr
-    set currentTagStr to tag names of obj
-    if currentTagStr is "" then
+    tell application "Things3"
+        set AppleScript's text item delimiters to ","
+        set removeTags to text items of removeStr
+        set currentTagStr to tag names of obj
+        if currentTagStr is "" then
+            set AppleScript's text item delimiters to ""
+            return
+        end if
+        set currentTagList to text items of currentTagStr
         set AppleScript's text item delimiters to ""
-        return
-    end if
-    set currentTagList to text items of currentTagStr
-    set AppleScript's text item delimiters to ""
-    set newTagList to {}
-    repeat with tg in currentTagList
-        set tgName to tg as text
-        set shouldRemove to false
-        repeat with rTag in removeTags
-            if tgName is (rTag as text) then
-                set shouldRemove to true
-                exit repeat
+        set newTagList to {}
+        repeat with tg in currentTagList
+            set tgName to tg as text
+            set shouldRemove to false
+            repeat with rTag in removeTags
+                if tgName is (rTag as text) then
+                    set shouldRemove to true
+                    exit repeat
+                end if
+            end repeat
+            if not shouldRemove then
+                set end of newTagList to tgName
             end if
         end repeat
-        if not shouldRemove then
-            set end of newTagList to tgName
+        if (count of newTagList) is 0 then
+            set tag names of obj to ""
+        else
+            set AppleScript's text item delimiters to ","
+            set tag names of obj to newTagList as text
+            set AppleScript's text item delimiters to ""
         end if
-    end repeat
-    if (count of newTagList) is 0 then
-        set tag names of obj to ""
-    else
-        set AppleScript's text item delimiters to ","
-        set tag names of obj to newTagList as text
-        set AppleScript's text item delimiters to ""
-    end if
+    end tell
 end removeTagsFromItem
 """
 
