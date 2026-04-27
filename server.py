@@ -747,3 +747,7 @@ def get_task_checklist(task_id: str) -> str:
         "total_items": len(checklist),
         "completed_items": sum(1 for item in checklist if item.get("completed"))
     }, indent=2)
+
+
+if __name__ == "__main__":
+    mcp.run()
