@@ -85,15 +85,14 @@ Things 3 must be open and running when Claude Desktop starts.
 | `update_project` | Update any field on an existing project |
 | `set_task_status` | Set a task to `open`, `completed`, or `cancelled` |
 | `complete_task` | Mark a task as complete |
-| `delete_task` | Permanently delete a task |
-| `create_task` (with checklist) | Create task with initial checklist items |
+| `delete_task` | Move a task to Trash (recoverable in the Things 3 app) |
 | `add_checklist_items` | Append items to a task's checklist |
 | `get_task_checklist` | Read all checklist items and their completion status |
 | `get_checklist_item_status` | Check the status of a single checklist item |
 
 ### Date and tag handling
 
-**Dates** accept `YYYY-MM-DD`, `"today"`, or `"tomorrow"`. Pass `"clear"` to remove a date.
+**Dates** accept `YYYY-MM-DD`, `"today"`, `"tomorrow"`, or `"yesterday"`. Pass `"clear"` to remove a date.
 
 **Tags** can contain any characters, including slashes and spaces (e.g., `"Important/Due soon"`). When adding multiple tags via `add_tags`, each tag is created separately:
 - `add_tags=["Tag1", "Tag2"]` creates two distinct tags, not one concatenated tag
