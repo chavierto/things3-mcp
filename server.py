@@ -82,10 +82,9 @@ def open_things_url(scheme: str, auth_token: str = "") -> bool:
         scheme: The URL scheme command (without things:///)
         auth_token: Optional auth token for write operations
     """
-    if auth_token and "&" in scheme:
-        url = f"things:///{scheme}&auth-token={auth_token}"
-    elif auth_token:
-        url = f"things:///{scheme}?auth-token={auth_token}"
+    if auth_token:
+        sep = "&" if "?" in scheme else "?"
+        url = f"things:///{scheme}{sep}auth-token={auth_token}"
     else:
         url = f"things:///{scheme}"
 
@@ -122,7 +121,7 @@ def resolve_date(value: str) -> str:
         date.fromisoformat(value)
         return value
     except ValueError:
-        raise ValueError(f"Invalid date '{value}'. Use YYYY-MM-DD, 'today', or 'tomorrow'.")
+        raise ValueError(f"Invalid date '{value}'. Use YYYY-MM-DD, 'today', 'tomorrow', or 'yesterday'.")
 
 
 def parse_task_lines(output: str) -> list[dict]:
@@ -468,9 +467,9 @@ def create_task(
     Creates the task and returns its ID. If checklist_items are provided, they are appended
     to the newly created task.
 
-    WARNING: If checklist_items are provided but THINGS_AUTH_TOKEN is not set, the task will
-    be created but checklist items will be silently skipped. Set the auth token to ensure
-    checklist items are added.
+    If checklist_items are provided but THINGS_AUTH_TOKEN is not set, the task will NOT be
+    created — an error is returned instead. This prevents silent data loss where the task
+    would exist without its checklist items.
 
     Args:
         title: Task title (required).
@@ -482,6 +481,9 @@ def create_task(
         area_id: ID of the area to add the task to (ignored if project_id is set).
         checklist_items: List of checklist item titles (max 100). Requires THINGS_AUTH_TOKEN.
     """
+    if checklist_items and not THINGS_AUTH_TOKEN:
+        return json.dumps({"error": "THINGS_AUTH_TOKEN is required to create a task with checklist items"})
+
     props = [f'name: "{esc(title)}"']
     if notes:
         props.append(f'notes: "{esc(notes)}"')
@@ -512,13 +514,9 @@ end tell
     task_id = parts[0]
     task_name = parts[1] if len(parts) > 1 else title
 
-    # Add checklist items if provided
     if checklist_items:
-        if not THINGS_AUTH_TOKEN:
-            logger.warning("THINGS_AUTH_TOKEN not set; checklist items won't be added")
-        else:
-            items_str = "%0a".join(urllib.parse.quote(item) for item in checklist_items)
-            open_things_url(f"update?id={task_id}&checklist-items={items_str}", THINGS_AUTH_TOKEN)
+        items_str = "%0a".join(urllib.parse.quote(item) for item in checklist_items)
+        open_things_url(f"update?id={task_id}&checklist-items={items_str}", THINGS_AUTH_TOKEN)
 
     return json.dumps({"id": task_id, "name": task_name})
 @handle_tool_errors
@@ -705,12 +703,13 @@ def set_task_status(task_id: str, status: str) -> str:
     Set the status of a task. Use this to reopen, cancel, or complete a task.
 
     Sets the task status to one of: 'open' (active), 'completed' (finished, moved to Logbook),
-    or 'cancelled' (abandoned, moved to Trash). Most commonly used to complete or reopen tasks.
-    See also: complete_task() as a convenience wrapper for status='completed'.
+    or 'cancelled' (abandoned, stays in-place but hidden from normal views). Most commonly used
+    to complete or reopen tasks. See also: complete_task() as a convenience wrapper for
+    status='completed'.
 
     Args:
         task_id: The Things 3 task ID.
-        status: One of: 'open' (active task), 'completed' (finished), 'cancelled' (abandoned).
+        status: One of: 'open' (active), 'completed' (moves to Logbook), 'cancelled' (hidden in-place).
     """
     if status not in VALID_STATUSES:
         return json.dumps({"error": "status must be one of: open, completed, cancelled"})
