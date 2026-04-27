@@ -225,6 +225,40 @@ on parseDate(dStr)
     set time of dateObj to 0
     return dateObj
 end parseDate
+
+on removeTagsFromItem(obj, removeStr)
+    if removeStr is "" then return
+    set AppleScript's text item delimiters to ","
+    set removeTags to text items of removeStr
+    set currentTagStr to tag names of obj
+    if currentTagStr is "" then
+        set AppleScript's text item delimiters to ""
+        return
+    end if
+    set currentTagList to text items of currentTagStr
+    set AppleScript's text item delimiters to ""
+    set newTagList to {}
+    repeat with tg in currentTagList
+        set tgName to tg as text
+        set shouldRemove to false
+        repeat with rTag in removeTags
+            if tgName is (rTag as text) then
+                set shouldRemove to true
+                exit repeat
+            end if
+        end repeat
+        if not shouldRemove then
+            set end of newTagList to tgName
+        end if
+    end repeat
+    if (count of newTagList) is 0 then
+        set tag names of obj to ""
+    else
+        set AppleScript's text item delimiters to ","
+        set tag names of obj to newTagList as text
+        set AppleScript's text item delimiters to ""
+    end if
+end removeTagsFromItem
 """
 
 
@@ -537,6 +571,7 @@ def update_task(
     deadline: Optional[str] = None,
     when_date: Optional[str] = None,
     add_tags: Optional[list[str]] = None,
+    remove_tags: Optional[list[str]] = None,
     project_id: Optional[str] = None,
     area_id: Optional[str] = None,
 ) -> str:
@@ -550,6 +585,7 @@ def update_task(
         deadline: New deadline as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
         when_date: New scheduled date as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
         add_tags: Tag names to add (merges with existing tags).
+        remove_tags: Tag names to remove (only removes listed tags, leaves others intact).
         project_id: ID of project to move the task to.
         area_id: ID of area to move the task to (ignored if project_id is set).
     """
@@ -570,6 +606,9 @@ def update_task(
         tag_str = ",".join(esc(tag) for tag in add_tags)
         lines.append(f"set existingTags to tag names of t")
         lines.append(f'set tag names of t to existingTags & "," & "{tag_str}"')
+    if remove_tags:
+        remove_str = ",".join(esc(tag) for tag in remove_tags)
+        lines.append(f'my removeTagsFromItem(t, "{remove_str}")')
     if project_id:
         lines.append(f'set project of t to project id "{esc(project_id)}"')
     elif area_id:
@@ -598,6 +637,7 @@ def update_project(
     deadline: Optional[str] = None,
     when_date: Optional[str] = None,
     add_tags: Optional[list[str]] = None,
+    remove_tags: Optional[list[str]] = None,
     area_id: Optional[str] = None,
 ) -> str:
     """
@@ -610,6 +650,7 @@ def update_project(
         deadline: New deadline as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
         when_date: New scheduled date as YYYY-MM-DD, "today", "tomorrow", or "clear" to remove.
         add_tags: Tag names to add (merges with existing tags).
+        remove_tags: Tag names to remove (only removes listed tags, leaves others intact).
         area_id: ID of area to move the project to.
     """
     lines = []
@@ -629,6 +670,9 @@ def update_project(
         tag_str = ",".join(esc(tag) for tag in add_tags)
         lines.append(f"set existingTags to tag names of p")
         lines.append(f'set tag names of p to existingTags & "," & "{tag_str}"')
+    if remove_tags:
+        remove_str = ",".join(esc(tag) for tag in remove_tags)
+        lines.append(f'my removeTagsFromItem(p, "{remove_str}")')
     if area_id:
         lines.append(f'set area of p to area id "{esc(area_id)}"')
 
